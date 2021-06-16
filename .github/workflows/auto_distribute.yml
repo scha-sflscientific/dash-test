@@ -1,0 +1,86 @@
+name: Distribute template updates
+on:
+  push:
+    paths:
+      - '.github/workflows/*'
+      - '.github/default/*'
+      - '.github/pull_request_template.md'
+      - '.github/Readme.md'
+
+jobs:
+  Get-repo-list:
+    # Get repos that need to be updated 
+    runs-on: ubuntu-latest
+    if: ${{ (github.repository == 'SFLScientific/SFL-Template') && ((github.ref == 'refs/heads/main') || (github.ref == 'refs/heads/master')) }}
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - name: Find all workable repos
+      id: repo_list
+      uses: SFLScientific/fetch-repo-list@main
+      with:
+        last_active: 28
+        org_name: "SFLScientific"
+        token: ${{ secrets.SFLORGDISTRIBUTIONTOKEN }}
+        ignore_repos: "['SFLScientific/SFL-Template',\
+          'SFLScientific/spellcheck-github-actions',\
+          'SFLScientific/fetch-repo-list',\
+          'SFLScientific/TODOandCommentedCodeCheck',\
+          'SFLScientific/AutoBotYaml',\
+          'SFLScientific/PresentTenseArgs']" 
+
+    - name: Pass repo list to output
+      id: set-matrix
+      run: |
+        JSON="${{ steps.repo_list.outputs.repo_list }}"
+        echo "::set-output name=matrix::${JSON//'%'/'%25'}"
+
+  Distribute-updates:
+    needs: Get-repo-list
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{fromJson(needs.Get-repo-list.outputs.matrix)}}
+
+    steps:
+    - name: Fetch the template master
+      uses: actions/checkout@master
+      with:
+        path: template
+        lfs: False
+
+    - name: Fetch the project repo master
+      uses: actions/checkout@master
+      with:
+        path: project
+        lfs: False
+        repository: ${{ matrix.repo }}
+        token: ${{ secrets.SFLORGDISTRIBUTIONTOKEN }}
+
+    - name: Populate changes
+      run: |
+        cp -r template/.github/ project/
+        rm project/.github/workflows/auto_distribute.yml
+        if [ -f "project/.github/pre_release_config.py" ]; then
+          mv project/.github/pre_release_config.py project/.github/custom/pre_release_config.py
+        fi
+        if [ -f "project/.github/spellcheck.yaml" ]; then
+          mv project/.github/spellcheck.yaml project/.github/custom/spellcheck.yaml
+        fi
+        if [ -f "project/.github/wordlist.txt" ]; then
+          mv project/.github/wordlist.txt project/.github/custom/wordlist.txt 
+        fi
+        if [ -f "project/.github/Readme.md" ]; then
+          rm project/.github/Readme.md 
+        fi
+    - name: Open a PR for updates
+      uses: peter-evans/create-pull-request@v3.5.0
+      with:
+        author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
+        commit-message: Fetch template Github Action updates
+        committer: AutoCommit <${{ github.actor }}@users.noreply.github.com>
+        title: Update Github Actions
+        body: This is an auto-generated PR with most recent updated in template Github Actions.
+        labels: Github-action-updates, automated pr
+        branch: template-action-updates
+        path: project
+        token: ${{ secrets.SFLORGDISTRIBUTIONTOKEN }}

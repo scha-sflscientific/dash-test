@@ -1,0 +1,25 @@
+# Here you can define credentials for different data sets and environment.
+
+# Here you can define training and inference configuration for training and inference pipeline.
+
+# Example:
+
+[DATA]
+RAW_DIR = "data/raw/"
+
+[MODEL]
+EXAMPLE_NUM_TRAIN_ITER = 10
+EXAMPLE_LEARNING_RATE = 0.01
+
+[TRAIN]
+EXAMPLE_TEST_DATA_RATIO = 0.2
+SAVE_DIR = "/SFL-Template/models/dummy.p"
+
+[INFERENCE]
+MODEL_DIR = "/SFL-Template/models/dummy.p"
+OUTPUT_DIR = "/SFL-Template/data/output/inference.csv"
+test1 = [1,2,3,4,5]
+test2 = {k = "v",name = "dw"}
+
+
+
